@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Más Columbia — Prototipo navegable</title>
+<style>
+  :root{
+    --navy:#0a2351;
+    --navy-2:#123875;
+    --sky:#00aeef;
+    --sky-dark:#0089bf;
+    --bronze:#a96a3a;
+    --silver:#8d97a3;
+    --gold:#c9972f;
+    --black-tier:#1c1c1e;
+    --bg:#f3f5f8;
+    --card:#ffffff;
+    --ink:#0d1b2e;
+    --ink-soft:#5b6b80;
+    --line:#e1e6ed;
+    --success:#1a9e6b;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(10,35,81,0.08);
+    --font:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:var(--font); background:var(--bg); color:var(--ink);
+  }
+  /* ---------- Top app chrome ---------- */
+  .app-shell{
+    max-width:1180px; margin:0 auto; min-height:100vh; background:var(--bg);
+    display:flex; flex-direction:column;
+  }
+  .topbar{
+    background:var(--navy); color:#fff; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; letter-spacing:.2px;}
+  .brand .dot{ width:10px; height:10px; border-radius:50%; background:var(--sky); }
+  .mode-switch{ display:flex; background:rgba(255,255,255,.12); border-radius:999px; padding:3px; gap:2px; }
+  .mode-switch button{
+    border:none; background:transparent; color:#cfe3f7; padding:8px 16px; border-radius:999px;
+    font-size:13px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .mode-switch button.active{ background:var(--sky); color:#fff; }
+
+  .crumbs{
+    display:flex; gap:6px; align-items:center; padding:14px 24px 0; font-size:13px; color:var(--ink-soft);
+  }
+  .crumbs span.current{ color:var(--navy); font-weight:600; }
+
+  .screen-tabs{
+    display:flex; gap:8px; padding:14px 24px 0; flex-wrap:wrap;
+  }
+  .screen-tabs button{
+    border:1px solid var(--line); background:var(--card); color:var(--ink-soft);
+    padding:9px 16px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  .screen-tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+
+  .stage{ flex:1; padding:18px 24px 60px; }
+  .screen{ display:none; animation:fade .25s ease; }
+  .screen.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  .card{ background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); border:1px solid var(--line); }
+  .pad{ padding:22px 24px; }
+
+  h1.page-title{ font-size:21px; margin:0 0 4px; color:var(--navy); }
+  p.page-sub{ font-size:13.5px; color:var(--ink-soft); margin:0 0 18px; }
+
+  /* ===================== PANTALLA 1: Tablero cliente ===================== */
+  .grid-2col{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:880px){ .grid-2col{ grid-template-columns:1fr; } }
+
+  .profile-head{
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+    color:#fff; border-radius:var(--radius); padding:24px; position:relative; overflow:hidden;
+  }
+  .profile-head::after{
+    content:""; position:absolute; right:-40px; top:-40px; width:180px; height:180px;
+    border-radius:50%; background:rgba(0,174,239,0.18);
+  }
+  .profile-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; position:relative; z-index:1;}
+  .profile-name{ font-size:19px; font-weight:700; margin:0 0 4px;}
+  .segment-pill{
+    display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.15);
+    padding:5px 12px; border-radius:999px; font-size:12px; font-weight:600;
+  }
+  .tier-badge{
+    text-align:right;
+  }
+  .tier-name{ font-size:13px; font-weight:700; letter-spacing:.5px; }
+  .tier-bronce{ color:#e3b08c; }
+  .tier-plata{ color:#dfe6ec; }
+  .tier-oro{ color:#f3d27a; }
+  .tier-black{ color:#cfd2d6; }
+
+  .points-row{ display:flex; align-items:baseline; gap:10px; margin-top:18px; position:relative; z-index:1;}
+  .points-num{ font-size:40px; font-weight:800; letter-spacing:-1px; }
+  .points-label{ font-size:13px; color:#bcd6ee; }
+
+  .progress-wrap{ margin-top:14px; position:relative; z-index:1; }
+  .progress-track{ height:8px; background:rgba(255,255,255,.18); border-radius:999px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--sky); border-radius:999px; }
+  .progress-caption{ font-size:11.5px; color:#bcd6ee; margin-top:6px; }
+
+  .alert-box{
+    margin-top:18px; background:rgba(255,255,255,.92); color:var(--navy); border-radius:10px;
+    padding:12px 14px; font-size:12.5px; display:flex; gap:10px; align-items:flex-start; position:relative; z-index:1;
+  }
+  .alert-icon{ font-size:16px; }
+
+  .section-title{ font-size:14.5px; font-weight:700; color:var(--navy); margin:22px 0 10px; display:flex; justify-content:space-between; align-items:center;}
+  .see-all{ font-size:12px; color:var(--sky-dark); font-weight:600; cursor:pointer; }
+
+  table.tx-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.tx-table th{ text-align:left; color:var(--ink-soft); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; padding:8px 6px; border-bottom:1px solid var(--line);}
+  table.tx-table td{ padding:10px 6px; border-bottom:1px solid var(--line); }
+  .tx-tag{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
+  .tag-credito{ background:#e6f1fb; color:#0c447c; }
+  .tag-debito{ background:#eaf3de; color:#27500a; }
+  .tag-seguro{ background:#fbeaf0; color:#72243e; }
+  .tag-plazo{ background:#faeeda; color:#633806; }
+  .points-plus{ color:var(--success); font-weight:700; }
+
+  .side-card{ margin-bottom:18px; }
+  .side-card .pad{ padding:18px 20px; }
+  .level-item{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .level-item:last-child{ border-bottom:none; }
+  .level-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .level-item.current{ font-weight:700; color:var(--navy); }
+  .level-points{ margin-left:auto; color:var(--ink-soft); font-size:12px; }
+
+  .channel-row{ display:flex; gap:10px; margin-top:10px; }
+  .channel-chip{ flex:1; text-align:center; padding:10px 6px; border-radius:10px; background:var(--bg); border:1px solid var(--line); font-size:11.5px; color:var(--ink-soft);}
+  .channel-chip b{ display:block; font-size:15px; color:var(--navy); margin-bottom:2px; }
+
+  /* ===================== PANTALLA 2: Catálogo ===================== */
+  .filter-row{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .filter-chip{ padding:8px 16px; border-radius:999px; border:1px solid var(--line); background:var(--card); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+  .filter-chip.active{ background:var(--sky); border-color:var(--sky); color:#fff; }
+
+  .catalog-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:880px){ .catalog-grid{ grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .catalog-grid{ grid-template-columns:1fr;} }
+
+  .prod-card{ background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column;}
+  .prod-thumb{ height:90px; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .prod-body{ padding:14px 16px; display:flex; flex-direction:column; gap:6px; flex:1;}
+  .prod-cat{ font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); font-weight:700;}
+  .prod-name{ font-size:14px; font-weight:700; color:var(--ink); line-height:1.3;}
+  .prod-stock{ font-size:11.5px; color:var(--ink-soft); }
+  .prod-stock.low{ color:#a32d2d; font-weight:600; }
+  .prod-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:8px;}
+  .prod-points{ font-weight:800; color:var(--navy); font-size:15px; }
+  .btn-redeem{ background:var(--navy); color:#fff; border:none; padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .btn-redeem:disabled{ background:var(--line); color:var(--ink-soft); cursor:not-allowed; }
+
+  /* Modal */
+  .modal-overlay{
+    position:absolute; inset:0; background:rgba(10,35,81,0.55); display:none; align-items:center; justify-content:center; z-index:50; border-radius:var(--radius);
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{ background:#fff; border-radius:14px; padding:26px; width:340px; text-align:center; }
+  .modal-icon{ width:48px; height:48px; border-radius:50%; background:#eaf3de; color:var(--success); display:flex; align-items:center; justify-content:center; font-size:24px; margin:0 auto 14px; }
+  .modal-title{ font-size:16px; font-weight:700; color:var(--navy); margin:0 0 6px; }
+  .modal-text{ font-size:13px; color:var(--ink-soft); margin:0 0 18px; line-height:1.5;}
+  .modal-btn{ background:var(--navy); color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; width:100%;}
+  .stage-relative{ position:relative; }
+
+  /* ===================== PANTALLA 3: Config reglas (back-end) ===================== */
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .form-grid{ grid-template-columns:1fr; } }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; color:var(--ink); background:#fff;
+  }
+  .field .hint{ font-size:11px; color:var(--ink-soft); margin-top:4px; }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle{ width:42px; height:24px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; flex-shrink:0; }
+  .toggle.on{ background:var(--success); }
+  .toggle .knob{ width:18px; height:18px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px; transition:.15s; }
+  .toggle.on .knob{ left:21px; }
+  .stock-table{ width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  .stock-table th{ text-align:left; font-size:11px; text-transform:uppercase; color:var(--ink-soft); padding:8px 10px; border-bottom:1px solid var(--line); }
+  .stock-table td{ padding:9px 10px; border-bottom:1px solid var(--line); }
+  .stock-input{ width:70px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; font-size:12.5px;}
+  .badge-low{ background:#fcebeb; color:#791f1f; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:700;}
+  .badge-ok{ background:#eaf3de; color:#27500a; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:700;}
+  .btn-primary{ background:var(--navy); color:#fff; border:none; padding:11px 22px; border-radius:9px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .btn-secondary{ background:#fff; color:var(--navy); border:1px solid var(--navy); padding:11px 22px; border-radius:9px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .form-actions{ display:flex; gap:10px; margin-top:18px; }
+  .role-note{ display:flex; gap:8px; align-items:center; background:#e6f1fb; color:#0c447c; padding:10px 14px; border-radius:9px; font-size:12px; margin-bottom:18px;}
+
+  /* ===================== PANTALLA 4: Dashboard ===================== */
+  .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+  @media (max-width:880px){ .kpi-grid{ grid-template-columns:repeat(2,1fr);} }
+  .kpi-card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .kpi-label{ font-size:11.5px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px; }
+  .kpi-value{ font-size:26px; font-weight:800; color:var(--navy); }
+  .kpi-formula{ font-size:10.5px; color:var(--ink-soft); margin-top:6px; font-family:Consolas, monospace; line-height:1.4;}
+  .kpi-trend{ font-size:11.5px; margin-top:6px; font-weight:700;}
+  .trend-up{ color:var(--success); }
+  .trend-down{ color:#a32d2d; }
+
+  .chart-row{ display:grid; grid-template-columns:1.3fr 1fr; gap:16px; }
+  @media (max-width:880px){ .chart-row{ grid-template-columns:1fr; } }
+  .bars{ display:flex; align-items:flex-end; gap:14px; height:160px; padding:10px 6px 0; }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; justify-content:flex-end;}
+  .bar{ width:100%; max-width:38px; border-radius:6px 6px 0 0; background:var(--sky); }
+  .bar-val{ font-size:11px; font-weight:700; color:var(--navy); }
+  .bar-cap{ font-size:10.5px; color:var(--ink-soft); }
+
+  .donut-wrap{ display:flex; align-items:center; gap:18px; justify-content:center; padding-top:10px;}
+  .legend-item{ display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:8px;}
+  .legend-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0;}
+
+  .footer-note{ text-align:center; font-size:11.5px; color:var(--ink-soft); margin-top:30px; padding-top:16px; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> Más Columbia</div>
+    <div class="mode-switch">
+      <button id="btn-front" class="active" onclick="setMode('front')">Portal del cliente</button>
+      <button id="btn-back" onclick="setMode('back')">Panel administrativo</button>
+    </div>
+  </div>
+
+  <div class="crumbs" id="crumbs"></div>
+
+  <div class="screen-tabs" id="frontTabs">
+    <button class="active" onclick="showScreen('tablero')">Mi Tablero</button>
+    <button onclick="showScreen('catalogo')">Catálogo y Redención</button>
+  </div>
+  <div class="screen-tabs" id="backTabs" style="display:none;">
+    <button class="active" onclick="showScreen('config')">Configuración de Reglas</button>
+    <button onclick="showScreen('dashboard')">Dashboard de Gestión</button>
+  </div>
+
+  <div class="stage">
+
+    <!-- ============ PANTALLA 1: MI TABLERO ============ -->
+    <div class="screen active" id="screen-tablero">
+      <h1 class="page-title">Mi Tablero Más Columbia</h1>
+      <p class="page-sub">Perfil consolidado del cliente — Tabla Clientes + Niveles_Fidelizacion</p>
+
+      <div class="grid-2col">
+        <div>
+          <div class="profile-head">
+            <div class="profile-top">
+              <div>
+                <p class="profile-name">Hola, María Fernández</p>
+                <span class="segment-pill">📌 Segmento: Plan Sueldo</span>
+              </div>
+              <div class="tier-badge">
+                <div class="tier-name tier-oro">★ NIVEL ORO</div>
+                <div style="font-size:11px; color:#bcd6ee; margin-top:2px;">desde marzo 2025</div>
+              </div>
+            </div>
+
+            <div class="points-row">
+              <span class="points-num">18.450</span>
+              <span class="points-label">puntos disponibles</span>
+            </div>
+
+            <div class="progress-wrap">
+              <div class="progress-track"><div class="progress-fill" style="width:62%;"></div></div>
+              <div class="progress-caption">Te faltan 6.550 puntos para alcanzar el nivel Black</div>
+            </div>
+
+            <div class="alert-box">
+              <span class="alert-icon">⏰</span>
+              <span><b>Alerta inteligente:</b> 1.200 puntos vencen el 15/07/2026. Canjealos antes de perderlos.</span>
+            </div>
+          </div>
+
+          <div class="section-title">
+            <span>Transacciones recientes</span>
+            <span class="see-all" onclick="alert('Módulo de consulta online — historial completo')">Ver historial completo</span>
+          </div>
+          <div class="card pad">
+            <table class="tx-table">
+              <thead>
+                <tr><th>Fecha</th><th>Concepto</th><th>Canal</th><th>Monto</th><th>Puntos</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>26/06/2026</td>
+                  <td>Supermercado — Visa Crédito</td>
+                  <td><span class="tx-tag tag-credito">App</span></td>
+                  <td>$45.200</td>
+                  <td class="points-plus">+452</td>
+                </tr>
+                <tr>
+                  <td>22/06/2026</td>
+                  <td>Plazo Fijo renovado</td>
+                  <td><span class="tx-tag tag-plazo">Home Banking</span></td>
+                  <td>$500.000</td>
+                  <td class="points-plus">+1.500</td>
+                </tr>
+                <tr>
+                  <td>18/06/2026</td>
+                  <td>Farmacia — Mastercard Débito</td>
+                  <td><span class="tx-tag tag-debito">App</span></td>
+                  <td>$12.800</td>
+                  <td class="points-plus">+128</td>
+                </tr>
+                <tr>
+                  <td>10/06/2026</td>
+                  <td>Seguro Hogar — cuota mensual</td>
+                  <td><span class="tx-tag tag-seguro">Débito automático</span></td>
+                  <td>$8.500</td>
+                  <td class="points-plus">+255</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="card side-card">
+            <div class="pad">
+              <div class="section-title" style="margin-top:0;">Niveles del programa</div>
+              <div class="level-item">
+                <span class="level-dot" style="background:var(--bronze);"></span> Bronce
+                <span class="level-points">0 pts</span>
+              </div>
+              <div class="level-item">
+                <span class="level-dot" style="background:var(--silver);"></span> Plata
+                <span class="level-points">5.000 pts</span>
+              </div>
+              <div class="level-item current">
+                <span class="level-dot" style="background:var(--gold);"></span> Oro (actual)
+                <span class="level-points">15.000 pts</span>
+              </div>
+              <div class="level-item">
+                <span class="level-dot" style="background:var(--black-tier);"></span> Black
+                <span class="level-points">25.000 pts</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card side-card">
+            <div class="pad">
+              <div class="section-title" style="margin-top:0;">Productos vinculados</div>
+              <div style="font-size:13px; line-height:1.9;">
+                <div>✅ Tarjeta de Crédito Visa</div>
+                <div>✅ Plan Sueldo activo</div>
+                <div>✅ Plazo Fijo (1 activo)</div>
+                <div>✅ Seguro Hogar vigente</div>
+                <div style="color:var(--ink-soft);">⬜ Seguro de Vida — no contratado</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card side-card">
+            <div class="pad">
+              <div class="section-title" style="margin-top:0;">Uso de canales</div>
+              <div class="channel-row">
+                <div class="channel-chip"><b>32</b>conexiones App<br>este mes</div>
+                <div class="channel-chip"><b>5</b>conexiones Home Banking</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PANTALLA 2: CATÁLOGO Y REDENCIÓN ============ -->
+    <div class="screen" id="screen-catalogo">
+      <h1 class="page-title">Catálogo y Redención — Tienda Columbia</h1>
+      <p class="page-sub">Tabla Premios_Catalogo · Canje valida saldo y stock antes de confirmar</p>
+
+      <div class="filter-row">
+        <div class="filter-chip active" onclick="filterCat(this,'todos')">Todos</div>
+        <div class="filter-chip" onclick="filterCat(this,'tecnologia')">Tecnología</div>
+        <div class="filter-chip" onclick="filterCat(this,'vouchers')">Vouchers</div>
+        <div class="filter-chip" onclick="filterCat(this,'salud')">Beneficios de salud</div>
+      </div>
+
+      <div class="stage-relative">
+        <div class="catalog-grid" id="catalogGrid"></div>
+
+        <div class="modal-overlay" id="redeemModal">
+          <div class="modal-box">
+            <div class="modal-icon">✓</div>
+            <p class="modal-title">Canje confirmado</p>
+            <p class="modal-text" id="modalText">Se descontaron los puntos de tu saldo. El comprobante digital quedó vinculado a tu perfil.</p>
+            <button class="modal-btn" onclick="closeModal()">Entendido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PANTALLA 3: CONFIGURACIÓN DE REGLAS (BACK-END) ============ -->
+    <div class="screen" id="screen-config">
+      <h1 class="page-title">Configuración de Criterios y Reglas</h1>
+      <p class="page-sub">Acceso restringido — RBAC: rol Administrador / Marketing</p>
+
+      <div class="role-note">🔒 Conectado como: <b>ana.administradora@bancocolumbia.com.ar</b> — Rol: Analista de Marketing</div>
+
+      <div class="card pad" style="margin-bottom:18px;">
+        <div class="section-title" style="margin-top:0;">Reglas de acumulación de puntos</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Puntos por cada $1.000 gastados (Visa/Mastercard crédito)</label>
+            <input type="number" value="10">
+          </div>
+          <div class="field">
+            <label>Bonificación por apertura de Plazo Fijo</label>
+            <input type="number" value="1500">
+            <div class="hint">Puntos fijos otorgados una vez al confirmarse el alta</div>
+          </div>
+          <div class="field">
+            <label>Bonificación por contratación de seguro nuevo</label>
+            <input type="number" value="2000">
+          </div>
+          <div class="field">
+            <label>Segmento con multiplicador especial</label>
+            <select>
+              <option>Plan Sueldo (x1.5)</option>
+              <option>Jubilado/Pensionado (x1.2)</option>
+              <option>Cliente VIP/Premium (x2)</option>
+              <option>Convencional (x1)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-title">Reglas activas</div>
+        <div class="toggle-row">
+          <span>Acumulación con Tarjeta de Crédito Visa/Mastercard</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+        <div class="toggle-row">
+          <span>Bonificación de Cross-Selling (Plazo Fijo / Seguros)</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+        <div class="toggle-row">
+          <span>Alertas predictivas de vencimiento de puntos</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+        <div class="toggle-row">
+          <span>Promociones exclusivas para segmento Jubilados</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" onclick="alert('Reglas guardadas — se replican en SAP ERP 6.0 en tiempo real')">Guardar cambios</button>
+          <button class="btn-secondary" onclick="alert('Cambios descartados')">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <div class="section-title" style="margin-top:0;">Gestor de Stock de Premios (ABM)</div>
+        <table class="stock-table">
+          <thead>
+            <tr><th>Premio</th><th>Categoría</th><th>Puntos req.</th><th>Stock</th><th>Estado</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Auriculares Bluetooth</td><td>Tecnología</td><td>8.000</td>
+              <td><input class="stock-input" value="14"></td><td><span class="badge-ok">OK</span></td>
+            </tr>
+            <tr>
+              <td>Voucher Cine x2</td><td>Vouchers</td><td>3.500</td>
+              <td><input class="stock-input" value="3"></td><td><span class="badge-low">Stock bajo</span></td>
+            </tr>
+            <tr>
+              <td>Sesión de Telemedicina</td><td>Salud</td><td>2.000</td>
+              <td><input class="stock-input" value="120"></td><td><span class="badge-ok">OK</span></td>
+            </tr>
+            <tr>
+              <td>Descuento Farmacia 20%</td><td>Salud</td><td>1.200</td>
+              <td><input class="stock-input" value="0"></td><td><span class="badge-low">Sin stock</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="alert('Inventario actualizado en tiempo real')">Actualizar inventario</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PANTALLA 4: DASHBOARD DE GESTIÓN ============ -->
+    <div class="screen" id="screen-dashboard">
+      <h1 class="page-title">Dashboard de Gestión — Business Intelligence</h1>
+      <p class="page-sub">KPIs calculados en tiempo real sobre Oracle / SQL Server</p>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Tasa de conversión Cross-Selling</div>
+          <div class="kpi-value">34,2%</div>
+          <div class="kpi-trend trend-up">▲ 4,1 pts vs. trimestre anterior</div>
+          <div class="kpi-formula">(Clientes con PF o Seguro / Total adheridos) × 100</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Índice de Lealtad Segmento Sueldo</div>
+          <div class="kpi-value">58,7%</div>
+          <div class="kpi-trend trend-up">▲ 2,3 pts</div>
+          <div class="kpi-formula">(Ventas Plan Sueldo / Ventas totales Tienda) × 100</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tasa de Redención Beneficios Salud</div>
+          <div class="kpi-value">41,5%</div>
+          <div class="kpi-trend trend-down">▼ 1,8 pts</div>
+          <div class="kpi-formula">(Serv. salud usados / Jubilados con paquete) × 100</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Eficiencia del Canal App</div>
+          <div class="kpi-value">67,9%</div>
+          <div class="kpi-trend trend-up">▲ 6,4 pts</div>
+          <div class="kpi-formula">(Usuarios activos App / Total miembros) × 100</div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="card pad">
+          <div class="section-title" style="margin-top:0;">Distribución de clientes por nivel</div>
+          <div class="bars">
+            <div class="bar-col"><div class="bar-val">12.400</div><div class="bar" style="height:55%; background:var(--bronze);"></div><div class="bar-cap">Bronce</div></div>
+            <div class="bar-col"><div class="bar-val">8.150</div><div class="bar" style="height:38%; background:var(--silver);"></div><div class="bar-cap">Plata</div></div>
+            <div class="bar-col"><div class="bar-val">4.920</div><div class="bar" style="height:78%; background:var(--gold);"></div><div class="bar-cap">Oro</div></div>
+            <div class="bar-col"><div class="bar-val">1.310</div><div class="bar" style="height:22%; background:var(--black-tier);"></div><div class="bar-cap">Black</div></div>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="section-title" style="margin-top:0;">Canjes del mes por categoría</div>
+          <div style="margin-top:14px;">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--sky);"></span> Tecnología — 38%</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--gold);"></span> Vouchers — 27%</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--success);"></span> Beneficios de salud — 24%</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--silver);"></span> Reintegros — 11%</div>
+          </div>
+          <div style="margin-top:10px;">
+            <button class="btn-secondary" onclick="alert('Descargando informe de auditoría en PDF...')">Descargar informe de auditoría</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">Prototipo navegable — Programa de Fidelización "Más Columbia" · Banco Columbia S.A. · Trabajo Integrador SIG 2026</div>
+</div>
+
+<script>
+  function setMode(mode){
+    document.getElementById('btn-front').classList.toggle('active', mode==='front');
+    document.getElementById('btn-back').classList.toggle('active', mode==='back');
+    document.getElementById('frontTabs').style.display = mode==='front' ? 'flex' : 'none';
+    document.getElementById('backTabs').style.display = mode==='back' ? 'flex' : 'none';
+    if(mode==='front'){ showScreen('tablero'); } else { showScreen('config'); }
+  }
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-'+id).classList.add('active');
+    document.querySelectorAll('#frontTabs button, #backTabs button').forEach(b=>b.classList.remove('active'));
+    const map = {tablero:0, catalogo:1, config:0, dashboard:1};
+    const container = (id==='tablero'||id==='catalogo') ? document.getElementById('frontTabs') : document.getElementById('backTabs');
+    container.querySelectorAll('button')[map[id]].classList.add('active');
+    updateCrumbs(id);
+  }
+
+  function updateCrumbs(id){
+    const labels = {
+      tablero:'Portal del cliente <span>›</span> <span class="current">Mi Tablero</span>',
+      catalogo:'Portal del cliente <span>›</span> <span class="current">Catálogo y Redención</span>',
+      config:'Panel administrativo <span>›</span> <span class="current">Configuración de Reglas</span>',
+      dashboard:'Panel administrativo <span>›</span> <span class="current">Dashboard de Gestión</span>'
+    };
+    document.getElementById('crumbs').innerHTML = labels[id];
+  }
+  updateCrumbs('tablero');
+
+  // ---- Catálogo dinámico ----
+  const productos = [
+    {cat:'tecnologia', nombre:'Auriculares Bluetooth', pts:8000, stock:14, emoji:'🎧', bg:'#e6f1fb'},
+    {cat:'tecnologia', nombre:'Smartwatch Fitness', pts:22000, stock:5, emoji:'⌚', bg:'#e6f1fb'},
+    {cat:'vouchers', nombre:'Voucher Cine x2', pts:3500, stock:3, emoji:'🎬', bg:'#faeeda'},
+    {cat:'vouchers', nombre:'Voucher Gastronómico $10.000', pts:5000, stock:18, emoji:'🍽️', bg:'#faeeda'},
+    {cat:'salud', nombre:'Sesión de Telemedicina', pts:2000, stock:120, emoji:'🩺', bg:'#eaf3de'},
+    {cat:'salud', nombre:'Descuento Farmacia 20%', pts:1200, stock:0, emoji:'💊', bg:'#eaf3de'},
+  ];
+
+  function renderCatalog(filter){
+    const grid = document.getElementById('catalogGrid');
+    grid.innerHTML = '';
+    productos.filter(p => filter==='todos' || p.cat===filter).forEach(p=>{
+      const sinStock = p.stock === 0;
+      const card = document.createElement('div');
+      card.className = 'prod-card';
+      card.innerHTML = `
+        <div class="prod-thumb" style="background:${p.bg};">${p.emoji}</div>
+        <div class="prod-body">
+          <span class="prod-cat">${p.cat}</span>
+          <span class="prod-name">${p.nombre}</span>
+          <span class="prod-stock ${p.stock<5 && !sinStock ? 'low':''} ${sinStock?'low':''}">${sinStock ? 'Sin stock' : p.stock+' disponibles'}</span>
+          <div class="prod-footer">
+            <span class="prod-points">${p.pts.toLocaleString('es-AR')} pts</span>
+            <button class="btn-redeem" ${sinStock?'disabled':''} onclick="redeem('${p.nombre.replace(/'/g,"")}', ${p.pts})">${sinStock?'Agotado':'Canjear'}</button>
+          </div>
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+  renderCatalog('todos');
+
+  function filterCat(el, cat){
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+    renderCatalog(cat);
+  }
+
+  function redeem(nombre, pts){
+    document.getElementById('modalText').textContent =
+      `Canjeaste "${nombre}" por ${pts.toLocaleString('es-AR')} puntos. El sistema validó tu saldo y el stock antes de confirmar la operación.`;
+    document.getElementById('redeemModal').classList.add('show');
+  }
+  function closeModal(){
+    document.getElementById('redeemModal').classList.remove('show');
+  }
+</script>
+</body>
+</html>
